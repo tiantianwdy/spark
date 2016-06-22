@@ -8,10 +8,10 @@ The hungarian algorithm is in spark_core module under org.apache.spark.scheduler
 
 To integrate with the spark scheduler we modified the classes below:
 
-- added org.apache.spark.scheduler.AdvancedTaskSchedulerImpl to override the resourceOffer method
-- modified org.apache.spark.scheduler.TaskSetManager to support assign the sequence of tasks matched by hungarian algorithm
-- modified org.apache.spark.scheduler.TaskSchedulerImpl to be able to access some of the shared variables for extension of scheduling
-- modified org.apache.spark.SparkContext to use the new scheduler
+- added `org.apache.spark.scheduler.AdvancedTaskSchedulerImpl` to override the resourceOffer method
+- modified `org.apache.spark.scheduler.TaskSetManager` to support assign the sequence of tasks matched by hungarian algorithm
+- modified `org.apache.spark.scheduler.TaskSchedulerImpl` to be able to access some of the shared variables for extension of scheduling
+- modified `org.apache.spark.SparkContext` to use the new scheduler
 
 ## Building Spark
 
