@@ -17,14 +17,11 @@
 
 package org.apache.spark.scheduler
 
-import java.nio.ByteBuffer
-
-import org.apache.spark.{TaskNotSerializableException, SparkContext}
+import org.apache.spark.SparkContext
 import org.apache.spark.scheduler.TaskLocality._
 
-import scala.collection.mutable.{HashSet, ArrayBuffer}
+import scala.collection.mutable.{ArrayBuffer, HashSet}
 import scala.util.Random
-import scala.util.control.NonFatal
 
 /**
  * Created by tiantian on 17/06/16.
@@ -36,6 +33,12 @@ class AdvancedTaskSchedulerImpl(sc: SparkContext,
 
   def this(sc: SparkContext) = this(sc, sc.conf.getInt("spark.task.maxFailures", 4))
 
+  /**
+   * check whether the input of a task is local to a given host
+   * @param host
+   * @param task
+   * @return
+   */
   def isLocal(host:String, task:Task[_]):Boolean = {
    if(task.preferredLocations == null || task.preferredLocations.isEmpty) {
      false
@@ -45,6 +48,15 @@ class AdvancedTaskSchedulerImpl(sc: SparkContext,
    }
   }
 
+  /**
+   * offer resources to a single taskset which might have many tasks
+   * @param taskSet
+   * @param maxLocality
+   * @param shuffledOffers
+   * @param availableCpus
+   * @param tasks
+   * @return
+   */
   private def resourceOfferSingleTaskSet(taskSet: TaskSetManager,
                                           maxLocality: TaskLocality,
                                           shuffledOffers: Seq[WorkerOffer],
@@ -58,13 +70,13 @@ class AdvancedTaskSchedulerImpl(sc: SparkContext,
       for( i <- 0 until cores) slotsIdx += idx
       Seq.fill(cores){ w.copy(cores = 1)}
     }).flatten
-    logInfo(s"slotsIdx: ${slotsIdx.mkString(",")}")
+    logDebug(s"slotsIdx: ${slotsIdx.mkString(",")}")
     val workerSize = slots.length
     val pendingTasks:Array[Task[_]] = taskSet.getAllPendingTasks
     val jobSize = pendingTasks.length
-    logInfo(s"offer size: ${shuffledOffers.size}")
-    logInfo(s"worker size: ${workerSize}")
-    logInfo(s"job size: ${jobSize}")
+    logDebug(s"offer size: ${shuffledOffers.size}")
+    logDebug(s"worker size: ${workerSize}")
+    logDebug(s"job size: ${jobSize}")
     if(workerSize > 0 && jobSize > 0){
       val schedStart = System.currentTimeMillis()
       val costMatrix = Array.fill(workerSize) {
@@ -101,7 +113,7 @@ class AdvancedTaskSchedulerImpl(sc: SparkContext,
           taskIdToExecutorId(tid) = execId
           executorsByHost(host) += execId
           availableCpus(idx) -= 1
-          logInfo(s"assigned task to executor: ${idx}..")
+          logDebug(s"assigned task to executor: ${idx}..")
         }
       }
     }

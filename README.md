@@ -1,3 +1,29 @@
+# This is a modified version of Apache Spark v1.3.0
+
+We mainly modified the scheduler to use hungarian algorithm.
+
+## Extensions for scheduling
+
+The hungarian algorithm is in spark_core module under org.apache.spark.scheduler.HungarianAlgorithm
+
+To integrate with the spark scheduler we modified the classes below:
+
+- added org.apache.spark.scheduler.AdvancedTaskSchedulerImpl to override the resourceOffer method
+- modified org.apache.spark.scheduler.TaskSetManager to support assign the sequence of tasks matched by hungarian algorithm
+- modified org.apache.spark.scheduler.TaskSchedulerImpl to be able to access some of the shared variables for extension of scheduling
+- modified org.apache.spark.SparkContext to use the new scheduler
+
+## Building Spark
+
+Spark is built using [Apache Maven](http://maven.apache.org/).
+To build Spark and its example programs, run:
+
+    build/mvn -Phadoop-2.4 -Dhadoop.version=2.4.0 -DskipTests package
+
+Then you can copy the assembly file to replace the the same file in spark (v-1.3.0-hadoop2.4.0) folder:
+
+    cp -r assembly/target/scala-2.10/spark-assembly-1.3.0-SNAPSHOT-hadoop2.4.0.jar [path to spark]/lib/spark-assembly-1.3.0-hadoop2.4.0.jar
+
 # Apache Spark
 
 Spark is a fast and general cluster computing system for Big Data. It provides
@@ -8,6 +34,7 @@ data processing, MLlib for machine learning, GraphX for graph processing,
 and Spark Streaming for stream processing.
 
 <http://spark.apache.org/>
+
 
 
 ## Online Documentation
