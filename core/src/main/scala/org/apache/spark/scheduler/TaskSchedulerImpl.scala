@@ -78,7 +78,7 @@ private[spark] class TaskSchedulerImpl(
   val taskIdToExecutorId = new HashMap[Long, String]
 
   @volatile private var hasReceivedTask = false
-  @volatile private var hasLaunchedTask = false
+  @volatile protected var hasLaunchedTask = false
   private val starvationTimer = new Timer(true)
 
   // Incrementing task IDs

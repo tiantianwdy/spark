@@ -48,7 +48,7 @@ import org.apache.spark.util.{Clock, SystemClock, Utils}
  *                        task set will be aborted
  */
 private[spark] class TaskSetManager(
-    sched: TaskSchedulerImpl,
+    val sched: TaskSchedulerImpl,
     val taskSet: TaskSet,
     val maxTaskFailures: Int,
     clock: Clock = new SystemClock())
@@ -128,6 +128,8 @@ private[spark] class TaskSetManager(
 
   // Set containing all pending tasks (also used as a stack, as above).
   val allPendingTasks = new ArrayBuffer[Int]
+
+  def getAllPendingTasks: Array[Task[_]] = allPendingTasks.map(idx => tasks(idx)).toArray
 
   // Tasks that can be speculated. Since these will be a small fraction of total
   // tasks, we'll just hold them in a HashSet.
@@ -496,6 +498,52 @@ private[spark] class TaskSetManager(
     }
     None
   }
+
+
+  @throws[TaskNotSerializableException]
+  def resourceOffers(res:Array[Int],
+                    resOffers:Seq[WorkerOffer],
+                    maxLocality: TaskLocality.TaskLocality): Seq[(Int, TaskDescription)] ={
+    val curTime = clock.getTimeMillis()
+    for(i <- 0 until res.length) yield {
+      val worker = resOffers(i)
+      val pendingIdx = res(i)
+      val index = allPendingTasks(pendingIdx)
+      val task = tasks(index)
+      val taskId = sched.newTaskId()
+      val execId = worker.executorId
+      val host = worker.host
+      val speculative = false
+      copiesRunning(index) += 1
+      val attemptNum = taskAttempts(index).size
+      val info = new TaskInfo(taskId, index, attemptNum, curTime,
+        execId, host, maxLocality, speculative)
+      taskInfos(taskId) = info
+      taskAttempts(index) = info :: taskAttempts(index)
+      val taskList = tasks
+      allPendingTasks.remove(pendingIdx)
+      val serializedTask: ByteBuffer = try {
+        Task.serializeWithDependencies(task, sched.sc.addedFiles, sched.sc.addedJars, ser)
+      } catch {
+        // If the task cannot be serialized, then there's no point to re-attempt the task,
+        // as it will always fail. So just abort the whole task-set.
+        case NonFatal(e) =>
+          val msg = s"Failed to serialize task $taskId, not attempting to retry it."
+          logError(msg, e)
+          abort(s"$msg Exception during serialization: $e")
+          throw new TaskNotSerializableException(e)
+      }
+      addRunningTask(taskId)
+      val taskName = s"task ${info.id} in stage ${taskSet.id}"
+      logInfo("Starting %s (TID %d, %s, %s, %d bytes)".format(
+        taskName, taskId, host, maxLocality, serializedTask.limit))
+      sched.dagScheduler.taskStarted(task, info)
+
+      (i, new TaskDescription(taskId = taskId, attemptNumber = attemptNum, execId,
+        taskName, index, serializedTask))
+    }
+  }
+
 
   private def maybeFinishTaskSet() {
     if (isZombie && runningTasks == 0) {
